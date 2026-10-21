@@ -1,0 +1,8 @@
+# SHRelay - remplace CommandBrothers
+#   /proxycommand <cmd>  alias bungeecommand, bungeec, bungeee  -> console proxy
+#   /proxyplayer  <cmd>  alias bungeeplayer, bungeep            -> au nom du joueur
+enable-queue: true
+queue-limit: 100
+log-relayed: true
+# Vide = tout autorise, comme CommandBrothers.
+allowed-commands: []

@@ -1,0 +1,27 @@
+name: SHRelay
+version: '${project.version}'
+main: org.Cry_Legende.sHRelay.bukkit.SHRelayBukkit
+api-version: '1.13'
+author: Cry_Legende
+description: Relais de commandes vers le proxy (remplace CommandBrothers)
+folia-supported: false
+
+commands:
+  proxycommand:
+    description: Execute une commande sur la console du proxy
+    usage: /proxycommand <commande>
+    aliases: [bungeecommand, bungeec, bungeee, pcmd]
+    permission: shrelay.console
+  proxyplayer:
+    description: Execute une commande sur le proxy en tant que joueur
+    usage: /proxyplayer <commande>
+    aliases: [bungeeplayer, bungeep, pplayer]
+    permission: shrelay.player
+
+permissions:
+  shrelay.console:
+    description: Relayer une commande vers la console du proxy
+    default: op
+  shrelay.player:
+    description: Relayer une commande executee en son propre nom sur le proxy
+    default: op
