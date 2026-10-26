@@ -37,7 +37,8 @@ public final class SHRelayBukkit extends JavaPlugin implements Listener, Command
     public void onEnable() {
         saveDefaultConfig();
         this.enableQueue = getConfig().getBoolean("enable-queue", true);
-        this.queueLimit = getConfig().getInt("queue-limit", 100);
+        // au moins 1 : avec 0 ou une valeur négative, la file vide lèverait une exception à chaque commande
+        this.queueLimit = Math.max(1, getConfig().getInt("queue-limit", 100));
 
         getServer().getMessenger().registerOutgoingPluginChannel(this, RelayProtocol.CHANNEL);
         getServer().getPluginManager().registerEvents(this, this);
@@ -80,6 +81,7 @@ public final class SHRelayBukkit extends JavaPlugin implements Listener, Command
             proxyCommand = proxyCommand.substring(1);
         }
 
+        boolean sent;
         if (asPlayer) {
             // Le proxy execute au nom du joueur qui porte le message : il faut
             // donc que ce soit ce joueur-la qui l'envoie.
@@ -87,19 +89,25 @@ public final class SHRelayBukkit extends JavaPlugin implements Listener, Command
                 send(sender, "&8&l« &c&lSH &8&l» &7Cette commande doit etre lancee par un joueur.");
                 return true;
             }
-            dispatch(player, RelayProtocol.MODE_PLAYER, proxyCommand);
+            sent = dispatch(player, RelayProtocol.MODE_PLAYER, proxyCommand);
         } else {
-            dispatch(null, RelayProtocol.MODE_CONSOLE, proxyCommand);
+            sent = dispatch(null, RelayProtocol.MODE_CONSOLE, proxyCommand);
+        }
+        if (!sent) {
+            return true; // déjà signalé en console : on ne confirme pas une transmission qui n'a pas eu lieu
         }
 
         send(sender, "&8&l« &b&lSH &8&l» &7Commande transmise au proxy : &b" + proxyCommand);
         return true;
     }
 
-    private void dispatch(Player carrier, String mode, String proxyCommand) {
+    /**
+     * @return faux si la trame n'a pu être ni envoyée ni mise en file
+     */
+    private boolean dispatch(Player carrier, String mode, String proxyCommand) {
         byte[] payload = encode(mode, proxyCommand);
         if (payload == null) {
-            return;
+            return false;
         }
 
         Player sender = carrier;
@@ -118,9 +126,16 @@ public final class SHRelayBukkit extends JavaPlugin implements Listener, Command
             } else {
                 getLogger().warning("Aucun joueur connecte, commande perdue : " + proxyCommand);
             }
-            return;
+            return true;
         }
-        sender.sendPluginMessage(this, RelayProtocol.CHANNEL, payload);
+        try {
+            sender.sendPluginMessage(this, RelayProtocol.CHANNEL, payload);
+        } catch (RuntimeException e) {
+            // trame trop grande pour le canal de plugin : refus propre plutôt qu'une erreur interne pour l'émetteur
+            getLogger().warning("Commande de relais non transmise (" + e.getMessage() + ") : " + proxyCommand);
+            return false;
+        }
+        return true;
     }
 
     private byte[] encode(String mode, String proxyCommand) {
@@ -151,7 +166,9 @@ public final class SHRelayBukkit extends JavaPlugin implements Listener, Command
                 player.sendPluginMessage(this, RelayProtocol.CHANNEL, queue.removeFirst());
                 sent++;
             }
-            getLogger().info(sent + " commande(s) en attente transmise(s) au proxy.");
+            if (sent > 0) {
+                getLogger().info(sent + " commande(s) en attente transmise(s) au proxy.");
+            }
         }, 20L);
     }
 }
